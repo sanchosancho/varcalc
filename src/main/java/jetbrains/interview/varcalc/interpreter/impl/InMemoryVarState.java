@@ -1,6 +1,7 @@
 package jetbrains.interview.varcalc.interpreter.impl;
 
 import jetbrains.interview.varcalc.interpreter.VarState;
+import jetbrains.interview.varcalc.interpreter.exceptions.ScriptExecutionException;
 import jetbrains.interview.varcalc.interpreter.vars.Var;
 
 import javax.annotation.Nullable;
@@ -26,7 +27,7 @@ public class InMemoryVarState implements VarState {
   public void add(String name, Var var, Scope scope) {
     Objects.requireNonNull(var, "var");
     switch (scope) {
-      case GLOBAL -> globalVars.put(name, var);
+      case GLOBAL -> safePut(globalVars, name, var);
       case THREAD_LOCAL -> addThreadLocal(name, var);
     }
   }
@@ -59,7 +60,7 @@ public class InMemoryVarState implements VarState {
       vars = new HashMap<>();
       localVars.set(vars);
     }
-    vars.put(name, var);
+    safePut(vars, name, var);
   }
 
   private void removeThreadLocal(String name) {
@@ -67,5 +68,12 @@ public class InMemoryVarState implements VarState {
     if (vars != null) {
       vars.remove(name);
     }
+  }
+
+  private static void safePut(Map<String, Var> vars, String name, Var var) {
+    if (vars.containsKey(name)) {
+      throw new ScriptExecutionException("Var with name " + name + " already exists");
+    }
+    vars.put(name, var);
   }
 }
