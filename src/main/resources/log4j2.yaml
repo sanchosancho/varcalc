@@ -1,0 +1,25 @@
+Configuration:
+  Appenders:
+    Console:
+      name: stdout
+      PatternLayout:
+        pattern: "%d %msg%n"
+
+    File:
+      - name: debugFileLog
+        filename: ".varcalc.debug.log"
+        PatternLayout:
+          pattern: "%d %-5level [%t] %c{5.}: %msg%n%throwable"
+
+  Loggers:
+    Root:
+      level: info
+      AppenderRef:
+        - ref: stdout
+
+    Logger:
+      - name: jetbrains.interview
+        level: debug
+        additivity: true
+        AppenderRef:
+          - ref: debugFileLog

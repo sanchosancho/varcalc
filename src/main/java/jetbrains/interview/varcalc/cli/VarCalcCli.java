@@ -1,6 +1,8 @@
 package jetbrains.interview.varcalc.cli;
 
 import jetbrains.interview.varcalc.interpreter.impl.AntlrBasedInterpreter;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import picocli.CommandLine;
 
 import java.io.FileInputStream;
@@ -13,6 +15,7 @@ import java.util.concurrent.Callable;
 
 @CommandLine.Command(name = "varcalc")
 public class VarCalcCli implements Callable<Integer> {
+  private static final Logger LOG = LogManager.getLogger(VarCalcCli.class);
 
   @CommandLine.Option(names = {"-f", "--file"}, description = "Path to file with script. If not set, stdin will be used to read script line by line.")
   private String scriptPath;
@@ -32,8 +35,8 @@ public class VarCalcCli implements Callable<Integer> {
       try {
         return new FileOutputStream(outputPath);
       } catch (FileNotFoundException e) {
-        System.err.println("Can not write to " + outputPath + " : " + e.getMessage());
-        System.err.println("Stdout will be used instead");
+        LOG.error("Can not write to {} : {}", outputPath, e.getMessage(), e);
+        LOG.error("Stdout will be used instead");
       }
     }
     return null;
@@ -42,24 +45,26 @@ public class VarCalcCli implements Callable<Integer> {
   @Override
   public Integer call() throws Exception {
     if (numThreads <= 0 || numThreads > Runtime.getRuntime().availableProcessors() * 2) {
-      System.err.println("Invalid number of threads, must be in range [1, " + Runtime.getRuntime().availableProcessors() * 2 + ").");
-      return 1;
+      LOG.error("Invalid number of threads, must be in range [1, {}).", Runtime.getRuntime().availableProcessors() * 2);
+      return 10;
     }
 
+    LOG.info("Starting varcalc interpreter with {} threads.", numThreads);
     try (final AntlrBasedInterpreter interpreter = new AntlrBasedInterpreter(numThreads)) {
       try (
         final InputStream input = scriptPath != null ? new FileInputStream(scriptPath) : null;
         final OutputStream output = getOutputStream(outputPath)
       ) {
+        LOG.info("Reading input from {} ...", input != null ? scriptPath : "stdin");
         final Scanner scanner = input != null ? new Scanner(input) : new Scanner(System.in);
         while (scanner.hasNextLine()) {
           interpreter.run(scanner.nextLine(), output != null ? output : System.out);
         }
       } catch (FileNotFoundException e) {
-        System.err.println("Not found input: " + e.getMessage());
+        LOG.error("Not found input: {}", e.getMessage());
         return 10;
       } catch (Exception e) {
-        System.err.println("Unexpected error during script execution: " + e.getMessage());
+        LOG.error("Unexpected error during script execution: {}", e.getMessage());
         return 1;
       }
 

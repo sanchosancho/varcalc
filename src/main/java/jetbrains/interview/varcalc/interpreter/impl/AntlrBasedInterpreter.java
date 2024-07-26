@@ -19,7 +19,8 @@ import jetbrains.interview.varcalc.parser.VarCalcLexer;
 import jetbrains.interview.varcalc.parser.VarCalcParser;
 import org.antlr.v4.runtime.CharStreams;
 import org.antlr.v4.runtime.CommonTokenStream;
-import org.apache.commons.io.IOUtils;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -27,6 +28,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.function.BinaryOperator;
 
 public class AntlrBasedInterpreter extends VarCalcBaseVisitor<Var> implements VarCalcInterpreter, AutoCloseable {
+  private static final Logger LOG = LogManager.getLogger(AntlrBasedInterpreter.class);
 
   private final VarState state;
   private final FunctionExecutor functionExecutor;
@@ -82,8 +84,7 @@ public class AntlrBasedInterpreter extends VarCalcBaseVisitor<Var> implements Va
         PrinterRegistry.print(output, var);
         output.write(System.lineSeparator().getBytes(StandardCharsets.UTF_8));
       } catch (IOException e) {
-        // todo: better log exception
-        System.err.println(e.getMessage());
+        LOG.error("Failed to write output: {}", e.getMessage(), e);
       }
       return super.visitPrintExpr(ctx);
     }
@@ -92,11 +93,10 @@ public class AntlrBasedInterpreter extends VarCalcBaseVisitor<Var> implements Va
     public Var visitPrintString(VarCalcParser.PrintStringContext ctx) {
       try {
         final String str = trimQuotes(ctx.QUOTED_STRING().getText());
-        IOUtils.write(str, output, StandardCharsets.UTF_8);
-        IOUtils.write(System.lineSeparator(), output, StandardCharsets.UTF_8);
+        output.write(str.getBytes(StandardCharsets.UTF_8));
+        output.write(System.lineSeparator().getBytes(StandardCharsets.UTF_8));
       } catch (IOException e) {
-        // todo: better log exception
-        System.err.println(e.getMessage());
+        LOG.error("Failed to write output: {}", e.getMessage(), e);
       }
       return super.visitPrintString(ctx);
     }
