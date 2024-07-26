@@ -4,6 +4,8 @@ import jetbrains.interview.varcalc.interpreter.VarCalcInterpreter;
 import jetbrains.interview.varcalc.interpreter.VarState;
 import jetbrains.interview.varcalc.interpreter.exceptions.InvalidTypeException;
 import jetbrains.interview.varcalc.interpreter.functions.FunctionExecutor;
+import jetbrains.interview.varcalc.interpreter.functions.impl.ParallelFunctionExecutor;
+import jetbrains.interview.varcalc.interpreter.functions.impl.StreamBasedFunctionExecutor;
 import jetbrains.interview.varcalc.interpreter.output.PrinterRegistry;
 import jetbrains.interview.varcalc.interpreter.vars.Double;
 import jetbrains.interview.varcalc.interpreter.vars.Integer;
@@ -22,17 +24,23 @@ import org.apache.commons.io.IOUtils;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
-import java.util.Objects;
 import java.util.function.BinaryOperator;
 
-public class AntlrBasedInterpreter extends VarCalcBaseVisitor<Var> implements VarCalcInterpreter {
+public class AntlrBasedInterpreter extends VarCalcBaseVisitor<Var> implements VarCalcInterpreter, AutoCloseable {
 
   private final VarState state;
   private final FunctionExecutor functionExecutor;
 
-  public AntlrBasedInterpreter(VarState state, FunctionExecutor functionExecutor) {
-    this.state = Objects.requireNonNull(state, "state must be not null");
-    this.functionExecutor = functionExecutor;
+  public AntlrBasedInterpreter(int numThreads) {
+    this.state = new InMemoryVarState();
+    this.functionExecutor = numThreads > 1
+      ? new ParallelFunctionExecutor(numThreads)
+      : new StreamBasedFunctionExecutor(false);
+  }
+
+  @Override
+  public void close() throws Exception {
+    functionExecutor.close();
   }
 
   @Override

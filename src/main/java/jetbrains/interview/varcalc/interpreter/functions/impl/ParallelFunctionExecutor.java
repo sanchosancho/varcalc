@@ -17,7 +17,7 @@ import java.util.function.BiFunction;
 import java.util.function.BinaryOperator;
 import java.util.function.Function;
 
-public class ParallelFunctionExecutor implements FunctionExecutor, AutoCloseable {
+public class ParallelFunctionExecutor implements FunctionExecutor {
   private final int numThreads;
   private final ExecutorService executorService;
 

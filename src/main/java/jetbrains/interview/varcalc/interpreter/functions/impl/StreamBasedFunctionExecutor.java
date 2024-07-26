@@ -17,6 +17,10 @@ public class StreamBasedFunctionExecutor implements FunctionExecutor {
   }
 
   @Override
+  public void close() {
+  }
+
+  @Override
   public Sequential map(Sequential sequence, Function<Numeric, Numeric> mapper) {
     return new NumericArray(getStream(sequence).map(mapper).toArray(Numeric[]::new));
   }
