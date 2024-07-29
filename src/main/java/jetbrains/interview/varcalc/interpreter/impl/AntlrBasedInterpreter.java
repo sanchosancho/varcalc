@@ -2,7 +2,7 @@ package jetbrains.interview.varcalc.interpreter.impl;
 
 import jetbrains.interview.varcalc.interpreter.VarCalcInterpreter;
 import jetbrains.interview.varcalc.interpreter.VarState;
-import jetbrains.interview.varcalc.interpreter.exceptions.InvalidTypeException;
+import jetbrains.interview.varcalc.interpreter.exceptions.ScriptExecutionException;
 import jetbrains.interview.varcalc.interpreter.functions.FunctionExecutor;
 import jetbrains.interview.varcalc.interpreter.functions.impl.ParallelFunctionExecutor;
 import jetbrains.interview.varcalc.interpreter.functions.impl.StreamBasedFunctionExecutor;
@@ -188,7 +188,7 @@ public class AntlrBasedInterpreter extends VarCalcBaseVisitor<Var> implements Va
           }
         );
       } else {
-        throw new InvalidTypeException("Undefined function call: " + functionName);
+        throw new ScriptExecutionException("Undefined function call: " + functionName);
       }
     }
 
@@ -213,7 +213,7 @@ public class AntlrBasedInterpreter extends VarCalcBaseVisitor<Var> implements Va
         case VarCalcParser.DIVISION       -> performBinaryArithmeticOp(left, right, Numeric::divide);
         case VarCalcParser.PLUS           -> performBinaryArithmeticOp(left, right, Numeric::add);
         case VarCalcParser.MINUS          -> performBinaryArithmeticOp(left, right, Numeric::subtract);
-        default -> throw new InvalidTypeException("Unknown operation type " + opType);
+        default -> throw new ScriptExecutionException("Unknown operation type " + opType);
       };
     }
 

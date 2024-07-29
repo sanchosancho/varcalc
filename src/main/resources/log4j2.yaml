@@ -3,13 +3,14 @@ Configuration:
     Console:
       name: stdout
       PatternLayout:
-        pattern: "%d %msg%n"
+        pattern: "%d %-5level %msg%n"
+        alwaysWriteExceptions: false
 
     File:
       - name: debugFileLog
         filename: ".varcalc.debug.log"
         PatternLayout:
-          pattern: "%d %-5level [%t] %c{5.}: %msg%n%throwable"
+          pattern: "%d %-5level [%t] %c{1.}: %msg%n%throwable"
 
   Loggers:
     Root:
@@ -18,8 +19,15 @@ Configuration:
         - ref: stdout
 
     Logger:
+      - name: cliLogger
+        level: info
+        additivity: false
+        AppenderRef:
+          - ref: stdout
+          - ref: debugFileLog
+
       - name: jetbrains.interview
         level: debug
-        additivity: true
+        additivity: false
         AppenderRef:
           - ref: debugFileLog

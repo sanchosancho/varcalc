@@ -1,5 +1,7 @@
 package jetbrains.interview.varcalc.cli;
 
+import jetbrains.interview.varcalc.interpreter.exceptions.InvalidTypeException;
+import jetbrains.interview.varcalc.interpreter.exceptions.ScriptExecutionException;
 import jetbrains.interview.varcalc.interpreter.impl.AntlrBasedInterpreter;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -35,8 +37,8 @@ public class VarCalcCli implements Callable<Integer> {
       try {
         return new FileOutputStream(outputPath);
       } catch (FileNotFoundException e) {
-        LOG.error("Can not write to {} : {}", outputPath, e.getMessage(), e);
-        LOG.error("Stdout will be used instead");
+        CliLogger.get().error("Can not write to {} : {}", outputPath, e.getMessage(), e);
+        CliLogger.get().error("Stdout will be used instead");
       }
     }
     return null;
@@ -45,26 +47,40 @@ public class VarCalcCli implements Callable<Integer> {
   @Override
   public Integer call() throws Exception {
     if (numThreads <= 0 || numThreads > Runtime.getRuntime().availableProcessors() * 2) {
-      LOG.error("Invalid number of threads, must be in range [1, {}).", Runtime.getRuntime().availableProcessors() * 2);
+      CliLogger.get().error("Invalid number of threads, must be in range [1, {}).", Runtime.getRuntime().availableProcessors() * 2);
       return 10;
     }
 
-    LOG.info("Starting varcalc interpreter with {} threads.", numThreads);
+    CliLogger.get().info("Starting varcalc interpreter with {} threads.", numThreads);
     try (final AntlrBasedInterpreter interpreter = new AntlrBasedInterpreter(numThreads)) {
+      final boolean isInteractive = scriptPath == null;
+      int lineCounter = 1;
+
       try (
-        final InputStream input = scriptPath != null ? new FileInputStream(scriptPath) : null;
+        final InputStream scriptStream = isInteractive ? null : new FileInputStream(scriptPath);
         final OutputStream output = getOutputStream(outputPath)
       ) {
-        LOG.info("Reading input from {} ...", input != null ? scriptPath : "stdin");
-        final Scanner scanner = input != null ? new Scanner(input) : new Scanner(System.in);
+        CliLogger.get().info("Reading script from {} ...", isInteractive ? "stdin" : scriptPath);
+        final Scanner scanner = new Scanner(isInteractive ? System.in : scriptStream);
         while (scanner.hasNextLine()) {
-          interpreter.run(scanner.nextLine(), output != null ? output : System.out);
+          try {
+            final String line = scanner.nextLine();
+            LOG.debug("Running for line {} - '{}'", lineCounter, line);
+            interpreter.run(line, output != null ? output : System.out);
+          } catch (ScriptExecutionException | InvalidTypeException e) {
+            CliLogger.get().error("Error at line {}: {}", lineCounter, e.getMessage());
+            if (!isInteractive) {
+              break;
+            }
+          } finally {
+            lineCounter++;
+          }
         }
       } catch (FileNotFoundException e) {
-        LOG.error("Not found input: {}", e.getMessage());
+        CliLogger.get().error("Can not open input file: {}", e.getMessage(), e);
         return 10;
       } catch (Exception e) {
-        LOG.error("Unexpected error during script execution: {}", e.getMessage());
+        CliLogger.get().error("Unexpected error during script execution: {}", e.getMessage(), e);
         return 1;
       }
 
