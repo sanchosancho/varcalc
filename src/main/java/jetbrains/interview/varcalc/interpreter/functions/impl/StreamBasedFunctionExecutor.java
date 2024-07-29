@@ -27,7 +27,7 @@ public class StreamBasedFunctionExecutor implements FunctionExecutor {
 
   @Override
   public Numeric reduce(Sequential sequence, Numeric identity, BinaryOperator<Numeric> reducer) {
-    return getStream(sequence).parallel().reduce(identity, reducer);
+    return getStream(sequence).reduce(identity, reducer);
   }
 
   private Stream<Numeric> getStream(Sequential sequence) {
