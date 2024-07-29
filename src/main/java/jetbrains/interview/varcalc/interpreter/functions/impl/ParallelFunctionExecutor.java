@@ -66,13 +66,12 @@ public class ParallelFunctionExecutor implements FunctionExecutor {
 
   private <T> List<Future<T>> submitTasks(int size, BiFunction<Integer, Integer, T> subTask) {
     final int partSize = size / numThreads + Math.min(size % numThreads, 1);
-    final int numParts = size / partSize + Math.min(size % numThreads, 1);
+    final List<Future<T>> futures = new ArrayList<>(numThreads);
 
-    final List<Future<T>> futures = new ArrayList<>(numParts);
-    for (int i = 0; i < numParts; i++) {
-      final int begin = i * partSize;
-      final int end = Math.min((i + 1) * partSize, size);
-      futures.add(i, executorService.submit(() -> subTask.apply(begin, end)));
+    for (int i = 0; i < size; i += partSize) {
+      final int begin = i;
+      final int end = Math.min(i + partSize, size);
+      futures.add(i / partSize, executorService.submit(() -> subTask.apply(begin, end)));
     }
     return futures;
   }
