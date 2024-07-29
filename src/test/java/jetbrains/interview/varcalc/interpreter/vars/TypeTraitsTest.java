@@ -4,6 +4,7 @@ import jetbrains.interview.varcalc.interpreter.exceptions.InvalidTypeException;
 import org.junit.Test;
 
 import java.util.Random;
+import java.util.function.BinaryOperator;
 
 import static org.junit.Assert.*;
 
@@ -105,5 +106,28 @@ public class TypeTraitsTest {
   @Test(expected = InvalidTypeException.class)
   public void castDbl2NumericArray() {
     TypeTraits.cast(TestVars.randomDouble(), NumericArray.class);
+  }
+
+  @Test
+  public void binaryOperationsWithDifferentTypes() {
+    final Integer left = TestVars.randomInteger();
+    final Double right = TestVars.randomDouble();
+
+    assertBinaryOperation(left, right, Numeric::add, left.value() + right.value());
+    assertBinaryOperation(right, left, Numeric::add, left.value() + right.value());
+    assertBinaryOperation(left, right, Numeric::subtract, left.value() - right.value());
+    assertBinaryOperation(right, left, Numeric::subtract, right.value() - left.value());
+    assertBinaryOperation(left, right, Numeric::multiply, left.value() * right.value());
+    assertBinaryOperation(right, left, Numeric::multiply, left.value() * right.value());
+    assertBinaryOperation(left, right, Numeric::divide, left.value() / right.value());
+    assertBinaryOperation(right, left, Numeric::divide, right.value() / left.value());
+    assertBinaryOperation(left, right, Numeric::pow, Math.pow(left.value(), right.value()));
+    assertBinaryOperation(right, left, Numeric::pow, Math.pow(right.value(), left.value()));
+  }
+
+  private static void assertBinaryOperation(Numeric left, Numeric right, BinaryOperator<Numeric> operator, double expected) {
+    final Numeric result = TypeTraits.performBinaryOperation(left, right, operator);
+    assertEquals(Double.class, result.getClass());
+    assertEquals(expected, TypeTraits.cast(result, Double.class).value(), 1e-5);
   }
 }

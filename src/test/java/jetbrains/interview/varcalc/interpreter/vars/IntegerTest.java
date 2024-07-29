@@ -2,6 +2,8 @@ package jetbrains.interview.varcalc.interpreter.vars;
 
 import org.junit.Test;
 
+import static org.junit.Assert.assertEquals;
+
 public class IntegerTest extends NumericTest<java.lang.Integer, Integer> {
 
   public IntegerTest() {
@@ -10,6 +12,12 @@ public class IntegerTest extends NumericTest<java.lang.Integer, Integer> {
       Integer::new,
       Integer::value
     );
+  }
+
+  @Test
+  public void value() {
+    final Integer integer = new Integer(10);
+    assertEquals(10, integer.value());
   }
 
   @Test

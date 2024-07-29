@@ -2,6 +2,8 @@ package jetbrains.interview.varcalc.interpreter.vars;
 
 import org.junit.Test;
 
+import static org.junit.Assert.assertEquals;
+
 public class DoubleTest extends NumericTest<java.lang.Double, Double> {
 
   public DoubleTest() {
@@ -10,6 +12,12 @@ public class DoubleTest extends NumericTest<java.lang.Double, Double> {
       Double::new,
       Double::value
     );
+  }
+
+  @Test
+  public void value() {
+    final Double integer = new Double(0.5);
+    assertEquals(0.5, integer.value(), 0.0);
   }
 
   @Test
@@ -41,16 +49,4 @@ public class DoubleTest extends NumericTest<java.lang.Double, Double> {
   public void negate() {
     testUnaryOp(a -> -a, Double::negate);
   }
-
-//  @Test
-//  public void inconsistentTypes() {
-//    final Double d = new Double(0.75);
-//    final Integer i = new Integer(1);
-//    d.add(i);
-//    d.subtract(i);
-//    d.multiply(i);
-//    d.divide(i);
-//    d.pow(i);
-//    fail("Operations should not allow implicit type casting");
-//  }
 }
