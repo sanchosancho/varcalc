@@ -1,5 +1,6 @@
 package jetbrains.interview.varcalc.interpreter.vars;
 
+import jetbrains.interview.varcalc.interpreter.exceptions.InvalidTypeException;
 import org.junit.Test;
 
 import java.util.stream.Stream;
@@ -38,5 +39,19 @@ public class IntervalTest {
   public void size() {
     final Interval interval = new Interval(1, 10);
     assertEquals(10, interval.size());
+  }
+
+  @Test(expected = InvalidTypeException.class)
+  public void invalidIntervalDeclaration() {
+    new Interval(10, 1);
+  }
+
+  @Test
+  public void singleElement() {
+    final Interval interval = new Interval(1, 1);
+    assertEquals(1, interval.size());
+    assertEquals(1, interval.begin());
+    assertEquals(1, interval.end());
+    assertEquals(1, TypeTraits.cast(interval.get(0), Integer.class).value());
   }
 }
