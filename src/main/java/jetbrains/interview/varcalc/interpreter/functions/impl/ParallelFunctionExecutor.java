@@ -23,7 +23,7 @@ public class ParallelFunctionExecutor implements FunctionExecutor {
 
   public ParallelFunctionExecutor(int numThreads) {
     this.numThreads = numThreads;
-    this.executorService = Executors.newFixedThreadPool(8);
+    this.executorService = Executors.newFixedThreadPool(numThreads);
   }
 
   @Override
@@ -71,7 +71,7 @@ public class ParallelFunctionExecutor implements FunctionExecutor {
     for (int i = 0; i < size; i += partSize) {
       final int begin = i;
       final int end = Math.min(i + partSize, size);
-      futures.add(i / partSize, executorService.submit(() -> subTask.apply(begin, end)));
+      futures.add(executorService.submit(() -> subTask.apply(begin, end)));
     }
     return futures;
   }

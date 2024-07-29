@@ -20,11 +20,6 @@ expr : ID # id
      | functionName LEFT_PARENTESIS expr (COMMA expr)* RIGHT_PARENTESIS # functionCall
      ;
 
-//negation : '-' expr ;
-//group : LEFT_PARENTESIS expr RIGHT_PARENTESIS ;
-//sequence : LEFT_BRACE expr ',' expr RIGHT_BRACE ;
-//lambda : (ID)+ '->' expr ;
-//function_call : function_name LEFT_PARENTESIS expr (',' expr)* RIGHT_PARENTESIS ;
 functionName : FUNCTION_MAP | FUNCTION_REDUCE ;
 
 KEYWORD_VAR : 'var' ;
