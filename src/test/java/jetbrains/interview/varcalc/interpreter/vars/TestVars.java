@@ -24,7 +24,7 @@ public class TestVars {
   }
 
   public static NumericArray randomIntegerArray() {
-    return randomIntegerArray(RNG.nextInt(100));
+    return randomIntegerArray(RNG.nextInt(1, 100));
   }
 
   public static NumericArray randomIntegerArray(int size) {
