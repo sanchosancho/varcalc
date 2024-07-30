@@ -94,7 +94,6 @@ public class AntlrBasedInterpreter extends VarCalcBaseVisitor<Var> implements Va
       try {
         final String str = trimQuotes(ctx.QUOTED_STRING().getText());
         output.write(str.getBytes(StandardCharsets.UTF_8));
-        output.write(System.lineSeparator().getBytes(StandardCharsets.UTF_8));
       } catch (IOException e) {
         LOG.error("Failed to write output: {}", e.getMessage(), e);
       }
@@ -128,13 +127,22 @@ public class AntlrBasedInterpreter extends VarCalcBaseVisitor<Var> implements Va
 
     @Override
     public Double visitNumber(VarCalcParser.NumberContext ctx) {
-      // todo: catch NumberFormatException
-      return new Double(java.lang.Double.parseDouble(ctx.NUMBER().getText()));
+      final String textValue = ctx.NUMBER().getText();
+      try {
+        return new Double(java.lang.Double.parseDouble(textValue));
+      } catch (NumberFormatException e) {
+        throw new ScriptExecutionException("Can not parse Double value from " + textValue);
+      }
     }
 
     @Override
     public Integer visitInteger(VarCalcParser.IntegerContext ctx) {
-      return new Integer(java.lang.Integer.parseInt(ctx.INTEGER().getText()));
+      final String textValue = ctx.INTEGER().getText();
+      try {
+        return new Integer(java.lang.Integer.parseInt(textValue));
+      } catch (NumberFormatException e) {
+        throw new ScriptExecutionException("Can not parse Integer value from " + textValue);
+      }
     }
 
     @Override
@@ -197,7 +205,7 @@ public class AntlrBasedInterpreter extends VarCalcBaseVisitor<Var> implements Va
       final String varId = ctx.getText();
       final Var var = state.get(varId);
       if (var == null) {
-        throw new IllegalArgumentException("Undefined variable: " + varId);
+        throw new ScriptExecutionException("Undefined variable: " + varId);
       }
       return var;
     }
@@ -222,11 +230,15 @@ public class AntlrBasedInterpreter extends VarCalcBaseVisitor<Var> implements Va
       VarCalcParser.ExprContext right,
       BinaryOperator<Numeric> op
     ) {
-      return TypeTraits.performBinaryOperation(
-        TypeTraits.cast(visit(left), Numeric.class),
-        TypeTraits.cast(visit(right), Numeric.class),
-        op
-      );
+      try {
+        return TypeTraits.performBinaryOperation(
+          TypeTraits.cast(visit(left), Numeric.class),
+          TypeTraits.cast(visit(right), Numeric.class),
+          op
+        );
+      } catch (ArithmeticException e) {
+        throw new ScriptExecutionException("Arithmetic error: " + e.getMessage(), e);
+      }
     }
 
     private static String trimQuotes(String str) {
