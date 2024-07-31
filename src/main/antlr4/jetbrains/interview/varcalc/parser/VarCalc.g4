@@ -7,6 +7,8 @@ statement : KEYWORD_VAR ID '=' expr # varDecl
           | KEYWORD_PRINT QUOTED_STRING # printString
           ;
 
+lambda : (ID)+ '->' expr ;
+
 expr : ID # id
      | NUMBER # number
      | INTEGER # integer
@@ -16,11 +18,9 @@ expr : ID # id
      | MINUS expr # negation
      | LEFT_PARENTESIS expr RIGHT_PARENTESIS # group
      | LEFT_BRACE begin=expr COMMA end=expr RIGHT_BRACE # sequence
-     | (ID)+ '->' expr # lambda
-     | functionName LEFT_PARENTESIS expr (COMMA expr)* RIGHT_PARENTESIS # functionCall
+     | FUNCTION_MAP LEFT_PARENTESIS seq=expr COMMA lambda RIGHT_PARENTESIS # map
+     | FUNCTION_REDUCE LEFT_PARENTESIS seq=expr COMMA identity=expr COMMA lambda RIGHT_PARENTESIS # reduce
      ;
-
-functionName : FUNCTION_MAP | FUNCTION_REDUCE ;
 
 KEYWORD_VAR : 'var' ;
 KEYWORD_OUT : 'out' ;

@@ -343,6 +343,16 @@ public class AntlrBasedInterpreterTest {
     );
   }
 
+  @Test(expected = ScriptExecutionException.class)
+  public void mapLambdaCannotAccessGlobalVars() {
+    interpreter.run(
+      """
+      var a = 2
+      var b = map({1, 5}, x -> {x, x * a})
+      """
+    );
+  }
+
   private static <T extends Var> T assertAndGetVar(VarState state, String name, Class<T> cls) {
     assertNotNull(state);
 

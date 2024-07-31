@@ -19,12 +19,14 @@ import jetbrains.interview.varcalc.parser.VarCalcLexer;
 import jetbrains.interview.varcalc.parser.VarCalcParser;
 import org.antlr.v4.runtime.CharStreams;
 import org.antlr.v4.runtime.CommonTokenStream;
+import org.antlr.v4.runtime.tree.TerminalNode;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.function.BinaryOperator;
 
 public class AntlrBasedInterpreter extends VarCalcBaseVisitor<Var> implements VarCalcInterpreter, AutoCloseable {
@@ -50,7 +52,7 @@ public class AntlrBasedInterpreter extends VarCalcBaseVisitor<Var> implements Va
     final VarCalcLexer lexer = new VarCalcLexer(CharStreams.fromString(script));
     final VarCalcParser parser = new VarCalcParser(new CommonTokenStream(lexer));
 
-    final ExecutionVisitor executionVisitor = new ExecutionVisitor(output);
+    final ExecutionVisitor executionVisitor = new ExecutionVisitor(state, output);
     executionVisitor.visit(parser.script());
 
     return state;
@@ -62,9 +64,11 @@ public class AntlrBasedInterpreter extends VarCalcBaseVisitor<Var> implements Va
   }
 
   class ExecutionVisitor extends VarCalcBaseVisitor<Var> {
+    private final VarState state;
     private final OutputStream output;
 
-    public ExecutionVisitor(OutputStream output) {
+    public ExecutionVisitor(VarState state, OutputStream output) {
+      this.state = state;
       this.output = output;
     }
 
@@ -153,51 +157,35 @@ public class AntlrBasedInterpreter extends VarCalcBaseVisitor<Var> implements Va
       );
     }
 
-    @Override
-    public Var visitLambda(VarCalcParser.LambdaContext ctx) {
-      return super.visitLambda(ctx);
+    public Numeric visitLambda(VarCalcParser.LambdaContext ctx, Var... vars) {
+      final List<String> args = ctx.ID().stream().map(TerminalNode::getText).toList();
+      for (int i = 0; i < args.size(); i++) {
+        state.add(args.get(i), vars[i]);
+      }
+      try {
+        return TypeTraits.cast(visit(ctx.expr()), Numeric.class);
+      } finally {
+        args.forEach(state::remove);
+      }
     }
 
     @Override
-    public Var visitFunctionCall(VarCalcParser.FunctionCallContext ctx) {
-      final String functionName = ctx.functionName().getText();
-      if ("map".equals(functionName)) {
-        final VarCalcParser.LambdaContext lambda = ctx.getRuleContext(VarCalcParser.LambdaContext.class, 0);
-        final String lambdaArgName = lambda.ID(0).getText();
+    public Var visitMap(VarCalcParser.MapContext ctx) {
+      final VarCalcParser.LambdaContext lambda = ctx.lambda();
+      final Sequential sequence = TypeTraits.cast(visit(ctx.seq), Sequential.class);
+      final ExecutionVisitor lambdaExecutor = new ExecutionVisitor(new ThreadLocalVarState(), output);
 
-        return functionExecutor.map(
-          TypeTraits.cast(visit(ctx.expr(0)), Sequential.class),
-          numeric -> {
-            state.add(lambdaArgName, numeric, VarState.Scope.THREAD_LOCAL);
-            try {
-              return TypeTraits.cast(visit(lambda.expr()), Numeric.class);
-            } finally {
-              state.remove(lambdaArgName, VarState.Scope.THREAD_LOCAL);
-            }
-          }
-        );
-      } else if ("reduce".equals(functionName)) {
-        final VarCalcParser.LambdaContext lambda = ctx.getRuleContext(VarCalcParser.LambdaContext.class, 0);
-        final String left = lambda.ID(0).getText();
-        final String right = lambda.ID(1).getText();
+      return functionExecutor.map(sequence, numeric -> lambdaExecutor.visitLambda(lambda, numeric));
+    }
 
-        return functionExecutor.reduce(
-          TypeTraits.cast(visit(ctx.expr(0)), Sequential.class),
-          TypeTraits.cast(visit(ctx.expr(1)), Numeric.class),
-          (n1, n2) -> {
-            state.add(left, n1, VarState.Scope.THREAD_LOCAL);
-            state.add(right, n2, VarState.Scope.THREAD_LOCAL);
-            try {
-              return TypeTraits.cast(visit(lambda.expr()), Numeric.class);
-            } finally {
-              state.remove(left, VarState.Scope.THREAD_LOCAL);
-              state.remove(right, VarState.Scope.THREAD_LOCAL);
-            }
-          }
-        );
-      } else {
-        throw new ScriptExecutionException("Undefined function call: " + functionName);
-      }
+    @Override
+    public Var visitReduce(VarCalcParser.ReduceContext ctx) {
+      final VarCalcParser.LambdaContext lambda = ctx.lambda();
+      final Sequential sequence = TypeTraits.cast(visit(ctx.seq), Sequential.class);
+      final Numeric identity = TypeTraits.cast(visit(ctx.identity), Numeric.class);
+      final ExecutionVisitor lambdaVisitor = new ExecutionVisitor(new ThreadLocalVarState(), output);
+
+      return functionExecutor.reduce(sequence, identity, (n1, n2) -> lambdaVisitor.visitLambda(lambda, n1, n2));
     }
 
     @Override
