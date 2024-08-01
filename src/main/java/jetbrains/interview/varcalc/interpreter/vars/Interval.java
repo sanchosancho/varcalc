@@ -5,6 +5,11 @@ import jetbrains.interview.varcalc.interpreter.exceptions.InvalidTypeException;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
+/**
+ * Compact representation of a sequence defined by interval in form of [begin, end].
+ * @param begin first element of interval, inclusively
+ * @param end first element of interval, inclusively
+ */
 public record Interval(int begin, int end) implements Sequential {
   public Interval {
     if (begin > end) {

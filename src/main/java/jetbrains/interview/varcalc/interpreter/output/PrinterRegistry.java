@@ -39,6 +39,7 @@ public class PrinterRegistry {
   }
 
   public static <T extends Var> void print(OutputStream outputStream, T var) throws IOException {
+    //noinspection unchecked
     final VarPrinter<T> printer = find((Class<T>)var.getClass());
     if (printer != null) {
       printer.print(outputStream, var);

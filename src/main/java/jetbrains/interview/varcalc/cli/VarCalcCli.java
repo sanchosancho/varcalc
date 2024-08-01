@@ -15,7 +15,7 @@ import java.io.OutputStream;
 import java.util.Scanner;
 import java.util.concurrent.Callable;
 
-@CommandLine.Command(name = "varcalc")
+@CommandLine.Command(name = "varcalc", mixinStandardHelpOptions = true, version = "0.1")
 public class VarCalcCli implements Callable<Integer> {
   private static final Logger LOG = LogManager.getLogger(VarCalcCli.class);
 
