@@ -1,6 +1,5 @@
 package jetbrains.interview.varcalc.interpreter.functions.impl;
 
-import jetbrains.interview.varcalc.interpreter.exceptions.InvalidTypeException;
 import jetbrains.interview.varcalc.interpreter.exceptions.ScriptExecutionException;
 import jetbrains.interview.varcalc.interpreter.functions.FunctionExecutor;
 import jetbrains.interview.varcalc.interpreter.vars.Numeric;
@@ -84,16 +83,10 @@ public class ParallelFunctionExecutor implements FunctionExecutor {
       }
       return results;
     } catch (ExecutionException e) {
-      if (e.getCause() instanceof InvalidTypeException invalidTypeException) {
-        throw invalidTypeException;
-      } else {
-        throw new ScriptExecutionException("Unexpected error during script execution", e.getCause());
-      }
+      throw new ScriptExecutionException("Function call failed", e.getCause(), 0);
     } catch (InterruptedException e) {
       Thread.currentThread().interrupt();
       throw new ScriptExecutionException("Script execution was interrupted");
-    } catch (Exception e) {
-      throw new ScriptExecutionException("Unexpected error during script execution", e);
     }
   }
 }

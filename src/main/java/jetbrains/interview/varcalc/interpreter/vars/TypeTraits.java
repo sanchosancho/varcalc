@@ -15,7 +15,7 @@ public final class TypeTraits {
     if (!leftClass.equals(rightClass)) {
       throw new InvalidTypeException(
         String.format(
-          "Can not use mismatching types: [%s, %s]",
+          "Expected exactly the same type, but got [%s, %s]",
           leftClass.getSimpleName(),
           rightClass.getSimpleName())
       );
@@ -24,26 +24,28 @@ public final class TypeTraits {
 
   public static int extractIntegerValue(Numeric var) {
     Objects.requireNonNull(var, "var must be not null");
-    if (Double.class.equals(var.getClass())) {
+    final Class<? extends Numeric> cls = var.getClass();
+    if (Double.class.equals(cls)) {
       throw new InvalidTypeException("Downscale from Double to Integer is forbidden");
-    } else if (Integer.class.equals(var.getClass())) {
+    } else if (Integer.class.equals(cls)) {
       return ((Integer)var).value();
     } else {
       throw new InvalidTypeException(
-        "Can not convert " + var.getClass().getSimpleName() + " to " + Double.class.getSimpleName()
+        String.format("Expected %s type, got %s", Numeric.class.getSimpleName(), cls.getSimpleName())
       );
     }
   }
 
   public static double extractDoubleValue(Numeric var) {
     Objects.requireNonNull(var, "var must be not null");
-    if (Double.class.equals(var.getClass())) {
+    final Class<? extends Numeric> cls = var.getClass();
+    if (Double.class.equals(cls)) {
       return ((Double)var).value();
-    } else if (Integer.class.equals(var.getClass())) {
+    } else if (Integer.class.equals(cls)) {
       return ((Integer)var).value();
     } else {
       throw new InvalidTypeException(
-        "Can not convert " + var.getClass().getSimpleName() + " to " + Double.class.getSimpleName()
+        String.format("Expected %s type, got %s", Numeric.class.getSimpleName(), cls.getSimpleName())
       );
     }
   }
@@ -54,26 +56,28 @@ public final class TypeTraits {
   }
 
   public static Double promoteToDouble(Var var) {
-    if (Double.class.equals(var.getClass())) {
+    final Class<? extends Var> cls = var.getClass();
+    if (Double.class.equals(cls)) {
       return (Double)var;
-    } else if (Integer.class.equals(var.getClass())) {
+    } else if (Integer.class.equals(cls)) {
       // promotion
       final int intValue = ((Integer) var).value();
       return new Double(intValue);
     } else {
       throw new InvalidTypeException(
-        "Can not convert " + var.getClass().getSimpleName() + " to " + Double.class.getSimpleName()
+        String.format("Expected %s type, got %s", Numeric.class.getSimpleName(), cls.getSimpleName())
       );
     }
   }
 
   public static <V extends Var> V cast(Var var, Class<V> castType) {
     Objects.requireNonNull(var, "var must be not null");
-    if (castType.isAssignableFrom(var.getClass())) {
+    final Class<? extends Var> cls = var.getClass();
+    if (castType.isAssignableFrom(cls)) {
       return castType.cast(var);
     } else {
       throw new InvalidTypeException(
-        String.format("Can not cast type %s to %s",var.getClass().getSimpleName(), castType.getSimpleName())
+        String.format("Can not cast type %s to %s", cls.getSimpleName(), castType.getSimpleName())
       );
     }
   }

@@ -3,6 +3,7 @@ package jetbrains.interview.varcalc.interpreter.impl;
 import jetbrains.interview.varcalc.interpreter.VarState;
 import jetbrains.interview.varcalc.interpreter.exceptions.InvalidTypeException;
 import jetbrains.interview.varcalc.interpreter.exceptions.ScriptExecutionException;
+import jetbrains.interview.varcalc.interpreter.exceptions.SyntaxErrorException;
 import jetbrains.interview.varcalc.interpreter.vars.Double;
 import jetbrains.interview.varcalc.interpreter.vars.Integer;
 import jetbrains.interview.varcalc.interpreter.vars.Interval;
@@ -51,9 +52,9 @@ public class AntlrBasedInterpreterTest {
     assertEquals(3, interval.end());
   }
 
-  @Test(expected = InvalidTypeException.class)
+  @Test
   public void intervalDeclarationInvalid() {
-    interpreter.run("var a = {3, 1}");
+    assertInvalidTypeIsThrown(() -> interpreter.run("var a = {3, 1}"), "Invalid interval does not cause an exception");
   }
 
   @Test(expected = ScriptExecutionException.class)
@@ -233,34 +234,44 @@ public class AntlrBasedInterpreterTest {
     assertEquals(-1, assertAndGetVar(interpreter.state(), "c", Integer.class).value());
   }
 
-  @Test(expected = InvalidTypeException.class)
+  @Test
   public void addOperatorSequence() {
-    interpreter.run("var a = {1, 3} + 5");
+    assertInvalidTypeIsThrown(() -> interpreter.run("var a = {1, 3} + 5"), "Invalid operation does not throw an exception");
   }
 
-  @Test(expected = InvalidTypeException.class)
+  @Test
   public void subtractOperatorSequence() {
-    interpreter.run("var a = {1, 3} - 5");
+    assertInvalidTypeIsThrown(() -> interpreter.run("var a = {1, 3} - 5"), "Invalid operation does not throw an exception");
   }
 
-  @Test(expected = InvalidTypeException.class)
+  @Test
   public void multiplyOperatorSequence() {
-    interpreter.run("var a = {1, 3} * 5");
+    assertInvalidTypeIsThrown(() -> interpreter.run("var a = {1, 3} * 5"), "Invalid operation does not throw an exception");
   }
 
-  @Test(expected = InvalidTypeException.class)
+  @Test
   public void divideOperatorSequence() {
-    interpreter.run("var a = {1, 3} / 5");
+    assertInvalidTypeIsThrown(() -> interpreter.run("var a = {1, 3} / 5"), "Invalid operation does not throw an exception");
   }
 
-  @Test(expected = InvalidTypeException.class)
+  @Test
   public void powOperatorSequence() {
-    interpreter.run("var a = {1, 3} ^ 5");
+    assertInvalidTypeIsThrown(() -> interpreter.run("var a = {1, 3} ^ 5"), "Invalid operation does not throw an exception");
   }
 
-  @Test(expected = InvalidTypeException.class)
+  @Test
   public void negateOperatorSequence() {
-    interpreter.run("var a = -{1, 3}");
+    assertInvalidTypeIsThrown(() -> interpreter.run("var a = -{1, 3}"), "Invalid operation does not throw an exception");
+  }
+
+  private static void assertInvalidTypeIsThrown(Runnable runnable, String failMessage) {
+    try {
+      runnable.run();
+      fail(failMessage);
+    } catch (ScriptExecutionException e) {
+      assertNotNull(e.getCause());
+      assertEquals(InvalidTypeException.class, e.getCause().getClass());
+    }
   }
 
   @Test
@@ -334,12 +345,20 @@ public class AntlrBasedInterpreterTest {
     assertEquals(350, assertAndGetVar(interpreter.state(), "b", Integer.class).value());
   }
 
-  @Test(expected = InvalidTypeException.class)
+  @Test
   public void mapLambdaCannotCreateSequence() {
-    interpreter.run(
-      """
-      var a = map({1, 5}, x -> {x, x * 2})
-      """
+    assertInvalidTypeIsThrown(
+      () -> interpreter.run("var a = map({1, 5}, x -> {x, x * 2})"),
+      "Map can not produce sequence"
+    );
+
+  }
+
+  @Test
+  public void reduceLambdaCannotCreateSequence() {
+    assertInvalidTypeIsThrown(
+      () -> interpreter.run("var a = reduce({1, 5}, 1, x y -> {x, y})"),
+      "Map can not produce sequence"
     );
   }
 
@@ -351,6 +370,36 @@ public class AntlrBasedInterpreterTest {
       var b = map({1, 5}, x -> {x, x * a})
       """
     );
+  }
+
+  @Test
+  public void invalidMapThrowsException() {
+    assertInvalidTypeIsThrown(() -> interpreter.run("var a = map(1, x -> x)"), "");
+  }
+
+  @Test
+  public void invalidReduceThrowsException() {
+    assertInvalidTypeIsThrown(() -> interpreter.run("var a = reduce(1, 1,  x y -> x + y)"), "");
+  }
+
+  @Test(expected = SyntaxErrorException.class)
+  public void invalidVarDeclarationThrowsException() {
+    interpreter.run("var a");
+  }
+
+  @Test(expected = SyntaxErrorException.class)
+  public void invalidLambdaThrowsException() {
+    interpreter.run("var a = map(1, 1 -> x)");
+  }
+
+  @Test(expected = SyntaxErrorException.class)
+  public void unknownFunctionThrowsException() {
+    interpreter.run("var a = func(1, 2)");
+  }
+
+  @Test(expected = SyntaxErrorException.class)
+  public void invalidFunctionThrowsException() {
+    interpreter.run("var a = map({1, 5})");
   }
 
   private static <T extends Var> T assertAndGetVar(VarState state, String name, Class<T> cls) {

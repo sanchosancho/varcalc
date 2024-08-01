@@ -2,7 +2,9 @@ package jetbrains.interview.varcalc.interpreter.impl;
 
 import jetbrains.interview.varcalc.interpreter.VarCalcInterpreter;
 import jetbrains.interview.varcalc.interpreter.VarState;
+import jetbrains.interview.varcalc.interpreter.exceptions.InvalidTypeException;
 import jetbrains.interview.varcalc.interpreter.exceptions.ScriptExecutionException;
+import jetbrains.interview.varcalc.interpreter.exceptions.SyntaxErrorException;
 import jetbrains.interview.varcalc.interpreter.functions.FunctionExecutor;
 import jetbrains.interview.varcalc.interpreter.functions.impl.ParallelFunctionExecutor;
 import jetbrains.interview.varcalc.interpreter.functions.impl.StreamBasedFunctionExecutor;
@@ -17,8 +19,12 @@ import jetbrains.interview.varcalc.interpreter.vars.Var;
 import jetbrains.interview.varcalc.parser.VarCalcBaseVisitor;
 import jetbrains.interview.varcalc.parser.VarCalcLexer;
 import jetbrains.interview.varcalc.parser.VarCalcParser;
+import org.antlr.v4.runtime.BaseErrorListener;
 import org.antlr.v4.runtime.CharStreams;
 import org.antlr.v4.runtime.CommonTokenStream;
+import org.antlr.v4.runtime.ParserRuleContext;
+import org.antlr.v4.runtime.RecognitionException;
+import org.antlr.v4.runtime.Recognizer;
 import org.antlr.v4.runtime.tree.TerminalNode;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -29,7 +35,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.function.BinaryOperator;
 
-public class AntlrBasedInterpreter extends VarCalcBaseVisitor<Var> implements VarCalcInterpreter, AutoCloseable {
+public class AntlrBasedInterpreter implements VarCalcInterpreter, AutoCloseable {
   private static final Logger LOG = LogManager.getLogger(AntlrBasedInterpreter.class);
 
   private final VarState state;
@@ -52,6 +58,9 @@ public class AntlrBasedInterpreter extends VarCalcBaseVisitor<Var> implements Va
     final VarCalcLexer lexer = new VarCalcLexer(CharStreams.fromString(script));
     final VarCalcParser parser = new VarCalcParser(new CommonTokenStream(lexer));
 
+    parser.removeErrorListeners();
+    parser.addErrorListener(new ErrorListener());
+
     final ExecutionVisitor executionVisitor = new ExecutionVisitor(state, output);
     executionVisitor.visit(parser.script());
 
@@ -61,6 +70,20 @@ public class AntlrBasedInterpreter extends VarCalcBaseVisitor<Var> implements Va
   @Override
   public VarState state() {
     return state;
+  }
+
+  static class ErrorListener extends BaseErrorListener {
+    @Override
+    public void syntaxError(
+      Recognizer<?, ?> recognizer,
+      Object offendingSymbol,
+      int line,
+      int charPositionInLine,
+      String msg,
+      RecognitionException e
+    ) {
+      throw new SyntaxErrorException("Invalid syntax – " + msg, charPositionInLine);
+    }
   }
 
   class ExecutionVisitor extends VarCalcBaseVisitor<Var> {
@@ -121,7 +144,7 @@ public class AntlrBasedInterpreter extends VarCalcBaseVisitor<Var> implements Va
 
     @Override
     public Var visitNegation(VarCalcParser.NegationContext ctx) {
-      return TypeTraits.cast(visit(ctx.expr()), Numeric.class).negate();
+      return readValue(ctx.expr(), Numeric.class).negate();
     }
 
     @Override
@@ -135,7 +158,10 @@ public class AntlrBasedInterpreter extends VarCalcBaseVisitor<Var> implements Va
       try {
         return new Double(java.lang.Double.parseDouble(textValue));
       } catch (NumberFormatException e) {
-        throw new ScriptExecutionException("Can not parse Double value from " + textValue);
+        throw new ScriptExecutionException(
+          "Can not parse Double value from " + textValue,
+          ctx.getStart().getCharPositionInLine()
+        );
       }
     }
 
@@ -145,16 +171,23 @@ public class AntlrBasedInterpreter extends VarCalcBaseVisitor<Var> implements Va
       try {
         return new Integer(java.lang.Integer.parseInt(textValue));
       } catch (NumberFormatException e) {
-        throw new ScriptExecutionException("Can not parse Integer value from " + textValue);
+        throw new ScriptExecutionException(
+          "Can not parse Integer value from " + textValue,
+          ctx.getStart().getCharPositionInLine()
+        );
       }
     }
 
     @Override
     public Sequential visitSequence(VarCalcParser.SequenceContext ctx) {
-      return new Interval(
-        TypeTraits.cast(visit(ctx.begin), Integer.class).value(),
-        TypeTraits.cast(visit(ctx.end), Integer.class).value()
-      );
+      try {
+        return new Interval(
+          readValue(ctx.begin, Integer.class).value(),
+          readValue(ctx.end, Integer.class).value()
+        );
+      } catch (InvalidTypeException e) {
+        throw new ScriptExecutionException("Can not construct Interval", e, ctx.getStart().getCharPositionInLine());
+      }
     }
 
     public Numeric visitLambda(VarCalcParser.LambdaContext ctx, Var... vars) {
@@ -163,7 +196,7 @@ public class AntlrBasedInterpreter extends VarCalcBaseVisitor<Var> implements Va
         state.add(args.get(i), vars[i]);
       }
       try {
-        return TypeTraits.cast(visit(ctx.expr()), Numeric.class);
+        return readValue(ctx.expr(), Numeric.class);
       } finally {
         args.forEach(state::remove);
       }
@@ -172,7 +205,7 @@ public class AntlrBasedInterpreter extends VarCalcBaseVisitor<Var> implements Va
     @Override
     public Var visitMap(VarCalcParser.MapContext ctx) {
       final VarCalcParser.LambdaContext lambda = ctx.lambda();
-      final Sequential sequence = TypeTraits.cast(visit(ctx.seq), Sequential.class);
+      final Sequential sequence = readValue(ctx.seq, Sequential.class);
       final ExecutionVisitor lambdaExecutor = new ExecutionVisitor(new ThreadLocalVarState(), output);
 
       return functionExecutor.map(sequence, numeric -> lambdaExecutor.visitLambda(lambda, numeric));
@@ -181,8 +214,8 @@ public class AntlrBasedInterpreter extends VarCalcBaseVisitor<Var> implements Va
     @Override
     public Var visitReduce(VarCalcParser.ReduceContext ctx) {
       final VarCalcParser.LambdaContext lambda = ctx.lambda();
-      final Sequential sequence = TypeTraits.cast(visit(ctx.seq), Sequential.class);
-      final Numeric identity = TypeTraits.cast(visit(ctx.identity), Numeric.class);
+      final Sequential sequence = readValue(ctx.seq, Sequential.class);
+      final Numeric identity = readValue(ctx.identity, Numeric.class);
       final ExecutionVisitor lambdaVisitor = new ExecutionVisitor(new ThreadLocalVarState(), output);
 
       return functionExecutor.reduce(sequence, identity, (n1, n2) -> lambdaVisitor.visitLambda(lambda, n1, n2));
@@ -193,7 +226,7 @@ public class AntlrBasedInterpreter extends VarCalcBaseVisitor<Var> implements Va
       final String varId = ctx.getText();
       final Var var = state.get(varId);
       if (var == null) {
-        throw new ScriptExecutionException("Undefined variable: " + varId);
+        throw new ScriptExecutionException("Undefined variable: " + varId, ctx.getStart().getCharPositionInLine());
       }
       return var;
     }
@@ -209,7 +242,7 @@ public class AntlrBasedInterpreter extends VarCalcBaseVisitor<Var> implements Va
         case VarCalcParser.DIVISION       -> performBinaryArithmeticOp(left, right, Numeric::divide);
         case VarCalcParser.PLUS           -> performBinaryArithmeticOp(left, right, Numeric::add);
         case VarCalcParser.MINUS          -> performBinaryArithmeticOp(left, right, Numeric::subtract);
-        default -> throw new ScriptExecutionException("Unknown operation type " + opType);
+        default -> throw new ScriptExecutionException("Unknown operation type " + opType, right.getStart().getCharPositionInLine());
       };
     }
 
@@ -220,12 +253,12 @@ public class AntlrBasedInterpreter extends VarCalcBaseVisitor<Var> implements Va
     ) {
       try {
         return TypeTraits.performBinaryOperation(
-          TypeTraits.cast(visit(left), Numeric.class),
-          TypeTraits.cast(visit(right), Numeric.class),
+          readValue(left, Numeric.class),
+          readValue(right, Numeric.class),
           op
         );
       } catch (ArithmeticException e) {
-        throw new ScriptExecutionException("Arithmetic error: " + e.getMessage(), e);
+        throw new ScriptExecutionException("Arithmetic error: " + e.getMessage(), e, left.getStart().getCharPositionInLine());
       }
     }
 
@@ -239,6 +272,14 @@ public class AntlrBasedInterpreter extends VarCalcBaseVisitor<Var> implements Va
           str.charAt(0) == '"' ? 1 : 0,
           str.charAt(str.length() - 1) == '"' ? str.length() - 1 : str.length()
         );
+      }
+    }
+
+    private <T extends Var> T readValue(ParserRuleContext ctx, Class<T> cls) {
+      try {
+        return TypeTraits.cast(visit(ctx), cls);
+      } catch (InvalidTypeException e) {
+        throw new ScriptExecutionException("Incompatible type", e, ctx.getStart().getCharPositionInLine());
       }
     }
   }

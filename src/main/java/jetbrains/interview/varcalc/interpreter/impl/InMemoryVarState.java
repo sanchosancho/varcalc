@@ -34,7 +34,7 @@ public class InMemoryVarState implements VarState {
 
   private static void safePut(Map<String, Var> vars, String name, Var var) {
     if (vars.containsKey(name)) {
-      throw new ScriptExecutionException("Var with name " + name + " already exists");
+      throw new ScriptExecutionException("Var with name '" + name + "' already exists", 0);
     }
     vars.put(name, var);
   }

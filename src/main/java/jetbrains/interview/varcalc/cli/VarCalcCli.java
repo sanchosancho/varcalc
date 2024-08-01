@@ -63,14 +63,14 @@ public class VarCalcCli implements Callable<Integer> {
         CliLogger.get().info("Reading script from {} ...", isInteractive ? "stdin" : scriptPath);
         final Scanner scanner = new Scanner(isInteractive ? System.in : scriptStream);
         while (scanner.hasNextLine()) {
+          final String line = scanner.nextLine();
+          LOG.debug("Running for line {} - '{}'", lineCounter, line);
           try {
-            final String line = scanner.nextLine();
-            LOG.debug("Running for line {} - '{}'", lineCounter, line);
             interpreter.run(line, output != null ? output : System.out);
-          } catch (ScriptExecutionException | InvalidTypeException e) {
-            CliLogger.get().error("Error at line {}: {}", lineCounter, e.getMessage());
+          } catch (ScriptExecutionException e) {
+            printErrorPosition(line, lineCounter, e);
             if (!isInteractive) {
-              break;
+              return 1;
             }
           } finally {
             lineCounter++;
@@ -85,6 +85,17 @@ public class VarCalcCli implements Callable<Integer> {
       }
 
       return 0;
+    }
+  }
+
+  private static void printErrorPosition(String line, int lineNumber, ScriptExecutionException e) {
+    CliLogger.get().error(">>> {}", line);
+    CliLogger.get().error("    {}^", String.format("%1$" + e.charPos() + "s", ' '));
+    CliLogger.get().error("At {}:{}: {}", lineNumber, e.charPos(), e.getMessage());
+
+    final Throwable cause = e.getCause();
+    if (cause instanceof InvalidTypeException invalidType) {
+      CliLogger.get().error("Reason: {}", invalidType.getMessage());
     }
   }
 }
