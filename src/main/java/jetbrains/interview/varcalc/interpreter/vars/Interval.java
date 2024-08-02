@@ -25,7 +25,6 @@ public record Interval(int begin, int end) implements Sequential {
   @Override
   public Stream<Numeric> stream() {
     return IntStream.rangeClosed(begin, end)
-      .parallel()
       .mapToObj(Integer::new)
       .map(Numeric.class::cast);
   }
